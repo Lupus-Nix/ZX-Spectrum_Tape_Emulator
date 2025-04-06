@@ -69,13 +69,17 @@ extern char String[25];//строка
 uint16_t BlockByteCounter=512;//считанный байт блока
 SD_TYPE SDType=SD_TYPE_NONE;//тип карты памяти
 
-static const char Text_SD_No_SPI_Up[] PROGMEM =       "Карта памяти не \0";
-static const char Text_SD_No_SPI_Down[] PROGMEM =     "поддерживает SPI\0";
-static const char Text_SD_No_Response[] PROGMEM =     "Карта молчит!   \0";
-static const char Text_SD_Size_Error_Up[] PROGMEM =   "Объем SD-карты  \0";
+#if defined LANGUAGE_RU
+static const char Text_SD_Not_Found_Up[] PROGMEM =    "Нет SD-карты    \0";
+static const char Text_SD_No_Response[] PROGMEM =     "SD-карта молчит \0";
 static const char Text_SD_Size_Error_Down[] PROGMEM = "не определен!   \0";
-static const char Text_SD_Size[] PROGMEM =            "Объем SD-карты  \0";
-
+static const char Text_SD_Size_Up[] PROGMEM =         "Размер SD-карты \0";
+#else
+static const char Text_SD_Not_Found_Up[] PROGMEM =    "SDcard not found\0";
+static const char Text_SD_No_Response[] PROGMEM =     "SD card not resp\0";
+static const char Text_SD_Size_Error_Down[] PROGMEM = "not defined!    \0";
+static const char Text_SD_Size_Up[] PROGMEM =         "SD card size is \0";
+#endif
 //----------------------------------------------------------------------------------------------------
 //прототипы функций
 //----------------------------------------------------------------------------------------------------
@@ -115,7 +119,7 @@ static inline uint8_t SD_TransmitData(uint8_t data)
 //----------------------------------------------------------------------------------------------------
 //инициализация карты памяти
 //----------------------------------------------------------------------------------------------------
-void SD_Init(void)
+bool SD_Init(void)
 {
  WH1602_SetTextUpLine("");
  WH1602_SetTextDownLine("");
@@ -149,10 +153,9 @@ void SD_Init(void)
  res=SD_SendCommand(CMD0,0x00,0x00,0x00,0x00,ANSWER_R1_SIZE,answer);
  if (res==false || answer[0]!=1)//ошибка
  {
-  WH1602_SetTextProgmemUpLine(Text_SD_No_SPI_Up);
-  WH1602_SetTextProgmemDownLine(Text_SD_No_SPI_Down);
-  while(1);
-  return;
+  WH1602_SetTextProgmemUpLine(Text_SD_Not_Found_Up);
+  _delay_ms(3000); PressAnyKey();
+  return false;
  }
 
  //определяем тип карты
@@ -164,8 +167,8 @@ void SD_Init(void)
   if (!((answer[ANSWER_R3_SIZE-2]&0x0F)==0x01 && answer[ANSWER_R3_SIZE-1]==0xAA))
   {
    WH1602_SetTextProgmemUpLine(Text_SD_No_Response);
-   while(1);
-   return; 
+   _delay_ms(3000); PressAnyKey();
+   return false; 
   }
   //шлём ACMD41
   for(n=0;n<65535;n++)
@@ -175,8 +178,8 @@ void SD_Init(void)
    if (res==false || (answer[0]!=0x00 && answer[0]!=0x01))
    {
     WH1602_SetTextProgmemUpLine(Text_SD_No_Response);
-    while(1);
-    return; 
+	_delay_ms(3000); PressAnyKey();
+    return false; 
    }
    res=SD_SendCommand(CMD1,0x00,0x00,0x00,0x40,ANSWER_R1_SIZE,answer);
    if (res==true && answer[0]==0x00) break;
@@ -184,16 +187,16 @@ void SD_Init(void)
   if (n==65535)
   {
    WH1602_SetTextProgmemUpLine(Text_SD_No_Response);
-   while(1);
-   return; 
+   _delay_ms(3000); PressAnyKey();
+   return false; 
   }
   //шлём CMD58
   res=SD_SendCommand(CMD58,0x00,0x00,0x00,0x00,ANSWER_R3_SIZE,answer);
   if (res==false)
   {
    WH1602_SetTextProgmemUpLine(Text_SD_No_Response);
-   while(1);
-   return; 
+   _delay_ms(3000); PressAnyKey();
+   return false; 
   }
   if (answer[1]&0x40) SDType=SD_TYPE_SD_V2_HC;
                  else SDType=SD_TYPE_SD_V2;  
@@ -219,7 +222,7 @@ void SD_Init(void)
   if (n==65535)
   {
    WH1602_SetTextProgmemUpLine(Text_SD_No_Response);
-   while(1);
+   _delay_ms(3000); PressAnyKey();
   }
   if (SDType!=SD_TYPE_MMC_V3) SDType=SD_TYPE_SD_V1;
  }
@@ -233,18 +236,23 @@ void SD_Init(void)
   uint32_t SD_Size=0;
   if (SD_GetSize(&SD_Size)==false)//ошибка
   {
-   WH1602_SetTextProgmemUpLine(Text_SD_Size_Error_Up);
+   WH1602_SetTextProgmemUpLine(Text_SD_Size_Up);
    WH1602_SetTextProgmemDownLine(Text_SD_Size_Error_Down);
-   while(1);
-   return;
+   _delay_ms(3000); PressAnyKey();
+   return false;
   }
   uint16_t size=(uint16_t)(SD_Size>>20);
+  #if defined LANGUAGE_RU
   sprintf(String,"%i МБ",size);
-  WH1602_SetTextProgmemUpLine(Text_SD_Size);
+  #else
+  sprintf(String,"%i MB",size);
+  #endif
+  WH1602_SetTextProgmemUpLine(Text_SD_Size_Up);
   WH1602_SetTextDownLine(String);
-  _delay_ms(1000);
+  _delay_ms(3000);
  }
  for(uint16_t m=0;m<1024;m++) SD_TransmitData(0xff);
+ return true;
 }
 
 //----------------------------------------------------------------------------------------------------

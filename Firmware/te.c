@@ -6,14 +6,19 @@
 //----------------------------------------------------------------------------------------------------
 //константы
 //----------------------------------------------------------------------------------------------------
-
-static const char Text_Main_Menu_Select[] PROGMEM =       "    Выберите    \0";
-static const char Text_Main_Memory_Test[] PROGMEM =       "   Тест памяти  \0";
-static const char Text_Main_Memory_Test_Error[] PROGMEM = " Ошибка памяти !\0";
-static const char Text_Main_Memory_Test_OK[] PROGMEM =    "Память исправна \0";
-static const char Text_Tape_Menu_No_Image[] PROGMEM =     "Нет файлов tap !\0";
-
-
+#if defined LANGUAGE_RU
+static const char Text_Main_Menu_Select[] PROGMEM =       "     Выбор      \0";
+static const char Text_Main_Memory_Test[] PROGMEM =       "  Тест  памяти  \0";
+static const char Text_Main_Memory_Test_Error[] PROGMEM = " Ошибка памяти! \0";
+static const char Text_Main_Memory_Test_OK[] PROGMEM =    "   Память  OK   \0";
+static const char Text_Tape_Menu_No_Image[] PROGMEM =     "Нет файлов TAP! \0";
+#else
+static const char Text_Main_Menu_Select[] PROGMEM =       "     Select     \0";
+static const char Text_Main_Memory_Test[] PROGMEM =       "  Memory  Test  \0";
+static const char Text_Main_Memory_Test_Error[] PROGMEM = " Memory  error! \0";
+static const char Text_Main_Memory_Test_OK[] PROGMEM =    "   Memory  OK   \0";
+static const char Text_Tape_Menu_No_Image[] PROGMEM =     " No  TAP files! \0";
+#endif
 //----------------------------------------------------------------------------------------------------
 //глобальные переменные
 //----------------------------------------------------------------------------------------------------
@@ -38,28 +43,6 @@ volatile uint8_t Speed;//скорость работы
 
 #define MAX_LEVEL 20
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//настройки кнопок
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#define BUTTON_UP_DDR      DDRD
-#define BUTTON_UP_PORT     PORTD
-#define BUTTON_UP_PIN      PIND
-#define BUTTON_UP          3
-
-#define BUTTON_CENTER_DDR  DDRD
-#define BUTTON_CENTER_PORT PORTD
-#define BUTTON_CENTER_PIN  PIND
-#define BUTTON_CENTER      2
-
-#define BUTTON_DOWN_DDR    DDRD
-#define BUTTON_DOWN_PORT   PORTD
-#define BUTTON_DOWN_PIN    PIND
-#define BUTTON_DOWN        1
-
-#define BUTTON_SELECT_DDR  DDRD
-#define BUTTON_SELECT_PORT PORTD
-#define BUTTON_SELECT_PIN  PIND
-#define BUTTON_SELECT      4
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //линии магнитофона
@@ -76,7 +59,6 @@ volatile uint8_t Speed;//скорость работы
 void TapeMenu(void);//меню магнитофона
 void MemoryTest(void);//тест памяти
 void OutputImage(void);//запуск образа
-void WaitAnyKey(void);//ожидание любой клавиши
 void InitAVR(void);//инициализация контроллера
 //----------------------------------------------------------------------------------------------------
 //дополнительные библиотеки
@@ -95,32 +77,37 @@ int main(void)
  InitAVR();
  DRAM_Init();
  WH1602_Init(); 
- SD_Init();
- FAT_Init();
+ if(SD_Init())
+	FAT_Init();
  //запускаем основное меню
  uint8_t select_item=0;
  while(1)
  {  
   WH1602_SetTextProgmemUpLine(Text_Main_Menu_Select);
-  if (select_item==0) strcpy(String,"> Магнитофон x1 <");
-  if (select_item==1) strcpy(String,"> Магнитофон x2 <");
-  if (select_item==2) strcpy(String,"> Магнитофон x4 <"); 
-  if (select_item==3) strcpy(String,">  Тест памяти  <");
+  #if defined LANGUAGE_RU
+  if (select_item==0) strcpy(String," > Воспр.  x1 <");
+  if (select_item==1) strcpy(String," > Воспр.  x2 <");
+  if (select_item==2) strcpy(String," > Воспр.  x4 <"); 
+  if (select_item==3) strcpy(String,"> Тест  памяти <");
+  if (select_item==4) strcpy(String,"> SD инциализ. <");
+  #else
+  if (select_item==0) strcpy(String,"  > Tape  x1 <");
+  if (select_item==1) strcpy(String,"  > Tape  x2 <");
+  if (select_item==2) strcpy(String,"  > Tape  x4 <"); 
+  if (select_item==3) strcpy(String," >  MEM test  <");
+  if (select_item==4) strcpy(String," >  SD  Init  <");
+  #endif
   WH1602_SetTextDownLine(String); 
   _delay_ms(500);
   //ждём нажатий кнопок
   while(1)
   {
-   if (BUTTON_UP_PIN&(1<<BUTTON_UP))
-   {
-    if (select_item==0) select_item=3;
-                   else select_item--;
+   if (BUTTON_UP_PIN&(1<<BUTTON_UP)){
+    if(--select_item>4)select_item=4;
     break;
    }
-   if (BUTTON_DOWN_PIN&(1<<BUTTON_DOWN))
-   {
-    if (select_item==3) select_item=0;
-                   else select_item++;       
+   if (BUTTON_DOWN_PIN&(1<<BUTTON_DOWN)){
+    if(++select_item>4)select_item=0;
     break;
    }
    if (BUTTON_SELECT_PIN&(1<<BUTTON_SELECT))
@@ -130,17 +117,18 @@ int main(void)
 	 Speed=0;
 	 TapeMenu();
 	}
-    if (select_item==1) 
+    else if (select_item==1) 
 	{
 	 Speed=1;
 	 TapeMenu();
 	}
-    if (select_item==2)
+    else if (select_item==2)
 	{
 	 Speed=2;
      TapeMenu();
 	}
-    if (select_item==3) MemoryTest();
+    else if (select_item==3) MemoryTest();
+	else if (select_item==4){if(SD_Init())FAT_Init();}
     break;
    }
   }  
@@ -181,8 +169,13 @@ void TapeMenu(void)
   //выводим данные с SD-карты
   //читаем имя файла 
   if (FAT_GetFileSearch(String,&FirstCluster,&Size,&directory,&hidden,&system)==true) WH1602_SetTextDownLine(String);
-  if (directory==false) sprintf(String,"[%02u:%05u] Файл",level,index);
-                   else sprintf(String,"[%02u:%05u] Папка",level,index);
+  #if defined LANGUAGE_RU
+  if (directory==false) sprintf(String,"[%02u:%05u] файл",level,index);
+                   else sprintf(String,"[%02u:%05u] кат.",level,index);
+  #else
+  if (directory==false) sprintf(String,"[%02u:%05u] file",level,index);
+                   else sprintf(String,"[%02u:%05u] dir.",level,index);
+  #endif
   WH1602_SetTextUpLine(String);  
   _delay_ms(200);
   //ждём нажатий кнопок
@@ -247,13 +240,17 @@ void TapeMenu(void)
 void MemoryTest(void)
 { 
  uint8_t last_p=0xff;
- WH1602_SetTextProgmemUpLine(Text_Main_Memory_Test);  
+ WH1602_SetTextProgmemUpLine(Text_Main_Memory_Test);
  for(uint16_t b=0;b<=255;b++)
  {   
   uint8_t progress=(uint8_t)(100UL*(int32_t)b/255UL);
   if (progress!=last_p)
   {
-   sprintf(String,"Выполнено:%i %%",progress);
+   #if defined LANGUAGE_RU
+   sprintf(String,"Завершено: %i %%",progress);
+   #else
+   sprintf(String,"Completed: %i %%",progress);
+   #endif
    WH1602_SetTextDownLine(String); 
    last_p=progress;
   } 
@@ -275,44 +272,17 @@ void MemoryTest(void)
     WH1602_SetTextProgmemUpLine(Text_Main_Memory_Test_Error);
     sprintf(String,"%05x = [%02x , %02x]",(unsigned int)addr,byte,byte_r);
     WH1602_SetTextDownLine(String);
-	_delay_ms(5000);
+	_delay_ms(15000); PressAnyKey();
     return;
    }
   }
  }
- 
- /*
- 
- uint8_t last_p=0xff;
- for(uint32_t addr=0;addr<131072UL;addr++)
- {
-  uint8_t progress=(uint8_t)(100UL*addr/131071UL);
-  if (progress!=last_p)
-  {
-   sprintf(String,"Выполнено:%i %%",progress);
-   WH1602_SetTextDownLine(String); 
-   last_p=progress;
-  }  
-  uint8_t byte=0x01;
-  for(uint8_t n=0;n<8;n++,byte<<=1)
-  {
-   DRAM_WriteByte(addr,byte);
-   DRAM_Refresh();
-   uint8_t byte_r=DRAM_ReadByte(addr);
-   if (byte!=byte_r)
-   {
-    WH1602_SetTextProgmemUpLine(Text_Main_Memory_Test_Error);
-    sprintf(String,"%05x = [%02x , %02x]",(unsigned int)addr,byte,byte_r);
-    WH1602_SetTextDownLine(String);
-	_delay_ms(5000);
-    return;
-   }
-  }
- }*/
+
  WH1602_SetTextProgmemUpLine(Text_Main_Memory_Test_OK);
  WH1602_SetTextDownLine("");
- _delay_ms(3000);
+ _delay_ms(3000); PressAnyKey();
 }
+
 //----------------------------------------------------------------------------------------------------
 //запуск образа
 //----------------------------------------------------------------------------------------------------
@@ -325,7 +295,12 @@ void OutputImage(void)
  {  
   if (FAT_WriteBlock(&BlockSize,block)==false) break;//блоки файла закончились 
   //выводим номер блока файла
+  #if defined LANGUAGE_RU
   sprintf(String,"Блок:%u [%u]",block+1,BlockSize);
+  #else
+  sprintf(String,"Block:%u [%u]",block+1,BlockSize);
+  #endif
+  
   WH1602_SetTextUpLine(String);  
   //запускаем таймер и регенерируем память    
   TCNT0=0;//начальное значение таймера
@@ -340,8 +315,12 @@ void OutputImage(void)
    cli();
    DRAM_Refresh();
    if (TapeOutMode==TAPE_OUT_STOP) 
-   {    
-    sprintf(String,"Блок:%u [0]",block+1);
+   {
+	#if defined LANGUAGE_RU
+	sprintf(String,"Блок:%u [0]",block+1);
+	#else
+    sprintf(String,"Block:%u [0]",block+1);
+	#endif
     WH1602_SetTextUpLine(String);
     uint16_t new_block=block+1;
     //формируем паузу
@@ -387,7 +366,11 @@ void OutputImage(void)
    {       
     if (dl==30000)
 	{
-     sprintf(String,"Блок:%u [%u]",block+1,dc);
+	 #if defined LANGUAGE_RU
+	 sprintf(String,"Блок:%u [%u]",block+1,dc);
+	 #else
+     sprintf(String,"Block:%u [%u]",block+1,dc);
+	 #endif
      WH1602_SetTextUpLine(String);
 	 dl=0;
 	}
@@ -428,20 +411,6 @@ void OutputImage(void)
   cli();
  }
  TAPE_OUT_PORT&=0xff^(1<<TAPE_OUT);
-}
-//----------------------------------------------------------------------------------------------------
-//ожидание любой клавиши
-//----------------------------------------------------------------------------------------------------
-void WaitAnyKey(void)
-{
- _delay_ms(200);
- while(1)
- {
-  if (BUTTON_UP_PIN&(1<<BUTTON_UP)) break;
-  if (BUTTON_DOWN_PIN&(1<<BUTTON_DOWN)) break;
-  if (BUTTON_CENTER_PIN&(1<<BUTTON_CENTER)) break;    
-  if (BUTTON_SELECT_PIN&(1<<BUTTON_SELECT)) break;
- }
 }
 //----------------------------------------------------------------------------------------------------
 //инициализация контроллера

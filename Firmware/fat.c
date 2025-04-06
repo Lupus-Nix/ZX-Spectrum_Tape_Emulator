@@ -72,14 +72,21 @@
 //----------------------------------------------------------------------------------------------------
 //константы
 //----------------------------------------------------------------------------------------------------
-
-static const char Text_FAT_Type[] PROGMEM =  "Тип ф. системы  \0";
-static const char Text_FAT32[] PROGMEM =     "FAT32- ошибка!  \0";
-static const char Text_FAT16[] PROGMEM =     "FAT16- ок.      \0";
-static const char Text_FAT12[] PROGMEM =     "FAT12- ошибка!  \0";
-static const char Text_NoFAT[] PROGMEM =     " FAT  не найдена\0";
+#if defined LANGAGE_RU
+static const char Text_FAT_Type[] PROGMEM =  " Type of f.sys. \0";
+static const char Text_FAT32[] PROGMEM =     "FAT32 - ошибка! \0";
+static const char Text_FAT16[] PROGMEM =     "   FAT16 - OK   \0";
+static const char Text_FAT12[] PROGMEM =     "FAT12 - ошибка! \0";
+static const char Text_NoFAT[] PROGMEM =     " FAT  не найден \0";
 static const char Text_MBR_Found[] PROGMEM = "   Найден MBR   \0";
-
+#else
+static const char Text_FAT_Type[] PROGMEM =  " Type of f.sys. \0";
+static const char Text_FAT32[] PROGMEM =     " FAT32 - error! \0";
+static const char Text_FAT16[] PROGMEM =     "   FAT16 - OK   \0";
+static const char Text_FAT12[] PROGMEM =     " FAT12 - error! \0";
+static const char Text_NoFAT[] PROGMEM =     " FAT  not found \0";
+static const char Text_MBR_Found[] PROGMEM = "   Found  MBR   \0";
+#endif
 //----------------------------------------------------------------------------------------------------
 //глобальные переменные
 //----------------------------------------------------------------------------------------------------
@@ -246,7 +253,7 @@ bool FAT_RecordPointerStepReverse(struct SFATRecordPointer *sFATRecordPointerPtr
 //----------------------------------------------------------------------------------------------------
 //Инициализация FAT
 //----------------------------------------------------------------------------------------------------
-void FAT_Init(void)
+bool FAT_Init(void)
 {
  WH1602_SetTextUpLine("");
  WH1602_SetTextDownLine("");
@@ -264,7 +271,7 @@ void FAT_Init(void)
   else//раздел не найден
   {
    WH1602_SetTextProgmemDownLine(Text_NoFAT);
-   while(1);  
+   _delay_ms(5000);   
   }
  }
  else//это, возможно, MBR
@@ -291,13 +298,15 @@ void FAT_Init(void)
    if (partition==4)//раздел не найден
    {
     WH1602_SetTextProgmemDownLine(Text_NoFAT);
-    while(1);  
+	_delay_ms(5000);
+	return false;
    }   
   }
   else//это не MBR
   {
    WH1602_SetTextProgmemDownLine(Text_NoFAT);
-   while(1);  
+	_delay_ms(5000);
+	return false;
   }
  } 
  
@@ -327,7 +336,8 @@ void FAT_Init(void)
  if (CountofClusters<4085UL)
  {
   WH1602_SetTextProgmemDownLine(Text_FAT12);
-  while(1);
+  _delay_ms(5000);
+  return false;
  }
  else
  {
@@ -341,11 +351,12 @@ void FAT_Init(void)
   {
    WH1602_SetTextProgmemDownLine(Text_FAT32);
    FATType=FAT32;
-   while(1);   
+	_delay_ms(5000);  
+	return false;
   }
  }
- if (FATType==FAT12) return;//не поддерживаем
- if (FATType==FAT32) return;//не поддерживаем
+ if (FATType==FAT12) return false;//не поддерживаем
+ if (FATType==FAT32) return false;//не поддерживаем
  //определяем начало корневой директории (для FAT16 - это сектор и отдельная область, для FAT32 - это ФАЙЛ в области данных с кластером BPB_RootClus)
  FirstRootFolderSecNum=ResvdSecCnt+(GetByte(BPB_NumFATs)*FATSz);
  ClusterSize=SecPerClus*BytsPerSec;//размер кластера в байтах
@@ -359,6 +370,7 @@ void FAT_Init(void)
  sFATRecordPointer.CurrentFolderCluster=0;//текущий кластер имени файла внутри директории
  sFATRecordPointer.EndFolderClusterAddr=sFATRecordPointer.BeginFolderAddr+(RootDirSectors*BytsPerSec);//конечный адрес имён файлов внутри директории (или кластера)
  sFATRecordPointer.BeginFolderClusterAddr=sFATRecordPointer.CurrentFolderAddr;//адрес начального кластера директории
+ return true;
 }
 //----------------------------------------------------------------------------------------------------
 //начать поиск файла в кталоге
